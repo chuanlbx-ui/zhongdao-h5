@@ -1,0 +1,207 @@
+name: 部署工作流
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: '部署环境'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  # 构建和测试
+  build-and-test:
+    name: 构建和测试
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+
+    - name: 设置 Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: 安装依赖
+      run: npm ci
+
+    - name: 运行 ESLint
+      run: npm run lint
+
+    - name: 运行类型检查
+      run: npx tsc --noEmit
+
+    - name: 构建应用
+      run: npm run build
+      env:
+        VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+        VITE_ENVIRONMENT: production
+
+    - name: 上传构建产物
+      uses: actions/upload-artifact@v4
+      with:
+        name: h5-build-files
+        path: dist/
+        retention-days: 7
+
+  # 部署到预发布环境
+  deploy-staging:
+    name: 部署到预发布环境
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    environment: staging
+
+    steps:
+    - name: 下载构建产物
+      uses: actions/download-artifact@v4
+      with:
+        name: h5-build-files
+        path: dist/
+
+    - name: 部署到 Vercel (预发布)
+      uses: vercel/action@v1
+      with:
+        vercel-token: ${{ secrets.VERCEL_TOKEN }}
+        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+        vercel-args: '--prod'
+      env:
+        VERCEL_ENV: preview
+
+  # 部署到生产环境
+  deploy-production:
+    name: 部署到生产环境
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+
+    steps:
+    - name: 下载构建产物
+      uses: actions/download-artifact@v4
+      with:
+        name: h5-build-files
+        path: dist/
+
+    - name: 部署到 Vercel (生产)
+      uses: vercel/action@v1
+      with:
+        vercel-token: ${{ secrets.VERCEL_TOKEN }}
+        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+        vercel-args: '--prod'
+      env:
+        VERCEL_ENV: production
+
+    - name: 发送部署通知
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        text: |
+          🚀 H5前端部署完成
+          环境: Production
+          分支: ${{ github.ref_name }}
+          提交: ${{ github.sha }}
+          部署状态: ${{ job.status }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # 部署到静态文件服务器 (备选方案)
+  deploy-static:
+    name: 部署到静态文件服务器
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event.inputs.environment == 'production'
+    environment: production
+
+    steps:
+    - name: 下载构建产物
+      uses: actions/download-artifact@v4
+      with:
+        name: h5-build-files
+        path: dist/
+
+    - name: 部署到静态服务器
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.STATIC_HOST }}
+        username: ${{ secrets.STATIC_USERNAME }}
+        key: ${{ secrets.STATIC_SSH_KEY }}
+        source: "dist/*"
+        target: ${{ secrets.STATIC_PATH }}/h5/
+        strip_components: 1
+
+    - name: 清理CDN缓存
+      run: |
+        curl -X POST "${{ secrets.CDN_API_URL }}/invalidate" \
+          -H "Authorization: Bearer ${{ secrets.CDN_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          -d '{"paths": ["/*"]}'
+
+  # 部署后健康检查
+  health-check:
+    name: 健康检查
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: always() && (needs.deploy-staging.result == 'success' || needs.deploy-production.result == 'success')
+
+    steps:
+    - name: 等待部署生效
+      run: sleep 60
+
+    - name: 检查预发布环境
+      run: |
+        response=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.STAGING_URL }})
+        if [ $response -eq 200 ]; then
+          echo "✅ 预发布环境健康检查通过"
+        else
+          echo "❌ 预发布环境健康检查失败: HTTP $response"
+          exit 1
+        fi
+
+    - name: 检查生产环境
+      if: needs.deploy-production.result == 'success'
+      run: |
+        response=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.PRODUCTION_URL }})
+        if [ $response -eq 200 ]; then
+          echo "✅ 生产环境健康检查通过"
+        else
+          echo "❌ 生产环境健康检查失败: HTTP $response"
+          exit 1
+        fi
+
+    - name: 性能监控检查
+      run: |
+        # 检查关键性能指标
+        response=$(curl -s ${{ secrets.PRODUCTION_URL }})
+
+        # 检查关键资源是否加载
+        if echo "$response" | grep -q "main.js"; then
+          echo "✅ JavaScript文件加载正常"
+        else
+          echo "❌ JavaScript文件加载异常"
+          exit 1
+        fi
+
+        if echo "$response" | grep -q "API Error"; then
+          echo "❌ 发现API错误"
+          exit 1
+        else
+          echo "✅ 未发现API错误"
+        fi

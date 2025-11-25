@@ -1,0 +1,543 @@
+/* 中道商城全局样式 */
+
+/* 导入设计令牌 */
+@import './variables.css';
+
+/* ==================== 基础重置 ==================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  font-family: var(--zd-font-primary);
+  font-size: var(--zd-text-base);
+  font-weight: var(--zd-font-normal);
+  line-height: var(--zd-leading-normal);
+  color: var(--zd-gray-900);
+  background-color: var(--zd-gray-50);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ==================== 通用工具类 ==================== */
+
+/* 文本截断 */
+.zd-text-truncate-1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zd-text-truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.zd-text-truncate-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ==================== 组件基础样式 ==================== */
+
+/* 卡片组件 */
+.zd-card {
+  background: white;
+  border-radius: var(--zd-radius-lg);
+  box-shadow: var(--zd-shadow-sm);
+  padding: var(--zd-padding-md);
+  border: 1px solid var(--zd-gray-100);
+  transition: all var(--zd-duration-normal) var(--zd-ease-out);
+}
+
+.zd-card--hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--zd-shadow-md);
+}
+
+.zd-card--gradient {
+  background: var(--zd-gradient-primary);
+  color: white;
+  border: none;
+}
+
+/* 按钮组件 */
+.zd-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--zd-space-2);
+  padding: var(--zd-padding-sm) var(--zd-padding-md);
+  border-radius: var(--zd-radius-lg);
+  font-family: inherit;
+  font-size: var(--zd-text-sm);
+  font-weight: var(--zd-font-medium);
+  line-height: 1;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: all var(--zd-duration-normal) var(--zd-ease-out);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.zd-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.zd-btn--primary {
+  background: var(--zd-primary);
+  color: white;
+}
+
+.zd-btn--primary:hover:not(:disabled) {
+  background: var(--zd-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--zd-shadow-primary);
+}
+
+.zd-btn--secondary {
+  background: var(--zd-gray-100);
+  color: var(--zd-gray-700);
+  border: 1px solid var(--zd-gray-200);
+}
+
+.zd-btn--secondary:hover:not(:disabled) {
+  background: var(--zd-gray-200);
+  border-color: var(--zd-gray-300);
+}
+
+.zd-btn--success {
+  background: var(--zd-success);
+  color: white;
+}
+
+.zd-btn--success:hover:not(:disabled) {
+  background: var(--zd-success-light);
+  transform: translateY(-1px);
+  box-shadow: var(--zd-shadow-success);
+}
+
+.zd-btn--large {
+  padding: var(--zd-padding-md) var(--zd-padding-lg);
+  font-size: var(--zd-text-base);
+}
+
+.zd-btn--small {
+  padding: var(--zd-space-2) var(--zd-space-3);
+  font-size: var(--zd-text-xs);
+}
+
+.zd-btn--block {
+  width: 100%;
+}
+
+/* 标签组件 */
+.zd-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--zd-radius-md);
+  font-size: var(--zd-text-xs);
+  font-weight: var(--zd-font-medium);
+  line-height: 1;
+}
+
+.zd-tag--primary {
+  background: var(--zd-primary);
+  color: white;
+}
+
+.zd-tag--success {
+  background: var(--zd-success-bg);
+  color: var(--zd-success);
+}
+
+.zd-tag--warning {
+  background: var(--zd-warning-bg);
+  color: var(--zd-warning);
+}
+
+.zd-tag--info {
+  background: var(--zd-info-bg);
+  color: var(--zd-info);
+}
+
+.zd-tag--gray {
+  background: var(--zd-gray-100);
+  color: var(--zd-gray-700);
+}
+
+/* 价格组件 */
+.zd-price {
+  font-family: var(--zd-font-number);
+  font-weight: var(--zd-font-bold);
+  color: var(--zd-primary);
+}
+
+.zd-price--large {
+  font-size: var(--zd-text-xl);
+}
+
+.zd-price--small {
+  font-size: var(--zd-text-base);
+}
+
+.zd-price--secondary {
+  color: var(--zd-gray-500);
+}
+
+/* ==================== 布局组件 ==================== */
+
+/* 容器 */
+.zd-container {
+  max-width: 100%;
+  padding: 0 var(--zd-page-padding-x);
+  margin: 0 auto;
+}
+
+@media (min-width: 640px) {
+  .zd-container {
+    max-width: 640px;
+  }
+}
+
+@media (min-width: 768px) {
+  .zd-container {
+    max-width: 768px;
+  }
+}
+
+/* 页面结构 */
+.zd-page {
+  min-height: 100vh;
+  background: var(--zd-gray-50);
+  display: flex;
+  flex-direction: column;
+}
+
+.zd-page__content {
+  flex: 1;
+  padding: var(--zd-space-4) 0;
+  padding-bottom: calc(var(--zd-page-footer-height) + var(--zd-space-4));
+}
+
+/* 头部导航 */
+.zd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--zd-space-4);
+  height: var(--zd-page-header-height);
+  background: white;
+  border-bottom: 1px solid var(--zd-gray-200);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.zd-header__title {
+  font-size: var(--zd-text-lg);
+  font-weight: var(--zd-font-semibold);
+  color: var(--zd-gray-900);
+}
+
+.zd-header__actions {
+  display: flex;
+  gap: var(--zd-space-3);
+}
+
+/* 底部导航 */
+.zd-tabbar {
+  display: flex;
+  height: var(--zd-page-footer-height);
+  background: white;
+  border-top: 1px solid var(--zd-gray-200);
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+}
+
+.zd-tabbar__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--zd-space-1);
+  color: var(--zd-gray-600);
+  transition: color var(--zd-duration-normal) var(--zd-ease-out);
+  position: relative;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+}
+
+.zd-tabbar__item--active {
+  color: var(--zd-primary);
+}
+
+.zd-tabbar__icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.zd-tabbar__text {
+  font-size: var(--zd-text-xs);
+  font-weight: var(--zd-font-medium);
+}
+
+/* ==================== 业务组件 ==================== */
+
+/* 用户信息卡片 */
+.zd-user-card {
+  background: var(--zd-gradient-primary);
+  color: white;
+  border-radius: var(--zd-radius-lg);
+  padding: var(--zd-padding-md);
+}
+
+.zd-user-card__avatar {
+  width: 3rem;
+  height: 3rem;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: var(--zd-radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.zd-user-card__info {
+  flex: 1;
+  margin-left: var(--zd-space-3);
+}
+
+.zd-user-card__name {
+  font-size: var(--zd-text-lg);
+  font-weight: var(--zd-font-bold);
+  margin-bottom: 0.25rem;
+}
+
+.zd-user-card__level {
+  font-size: var(--zd-text-sm);
+  opacity: 0.9;
+}
+
+.zd-user-card__points {
+  text-align: right;
+}
+
+.zd-user-card__points-label {
+  font-size: var(--zd-text-xs);
+  opacity: 0.8;
+  margin-bottom: 0.25rem;
+}
+
+.zd-user-card__points-value {
+  font-size: var(--zd-text-lg);
+  font-weight: var(--zd-font-bold);
+}
+
+/* 商品卡片 */
+.zd-product-card {
+  background: white;
+  border-radius: var(--zd-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--zd-shadow-sm);
+  transition: all var(--zd-duration-normal) var(--zd-ease-out);
+}
+
+.zd-product-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--zd-shadow-md);
+}
+
+.zd-product-card__image {
+  width: 100%;
+  aspect-ratio: 1/1;
+  object-fit: cover;
+  background: var(--zd-gray-100);
+}
+
+.zd-product-card__placeholder {
+  width: 100%;
+  aspect-ratio: 1/1;
+  background: var(--zd-gray-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: var(--zd-gray-400);
+}
+
+.zd-product-card__content {
+  padding: var(--zd-space-3);
+}
+
+.zd-product-card__name {
+  font-size: var(--zd-text-sm);
+  font-weight: var(--zd-font-medium);
+  color: var(--zd-gray-900);
+  margin-bottom: var(--zd-space-2);
+  line-height: var(--zd-leading-tight);
+}
+
+.zd-product-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--zd-space-2);
+}
+
+.zd-product-card__price {
+  font-family: var(--zd-font-number);
+  font-weight: var(--zd-font-bold);
+  color: var(--zd-primary);
+  font-size: var(--zd-text-lg);
+}
+
+.zd-product-card__sales {
+  font-size: var(--zd-text-xs);
+  color: var(--zd-gray-500);
+}
+
+.zd-product-card__actions {
+  display: flex;
+  gap: var(--zd-space-2);
+}
+
+.zd-product-card__tag {
+  flex-wrap: wrap;
+  gap: var(--zd-space-1);
+  margin-bottom: var(--zd-space-2);
+}
+
+/* 统计卡片 */
+.zd-stats-card {
+  background: white;
+  border-radius: var(--zd-radius-lg);
+  padding: var(--zd-padding-md);
+  box-shadow: var(--zd-shadow-sm);
+}
+
+.zd-stats-card__grid {
+  display: grid;
+  gap: var(--zd-space-4);
+}
+
+.zd-stats-card__grid--2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.zd-stats-card__grid--4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.zd-stats-item {
+  text-align: center;
+}
+
+.zd-stats-item__value {
+  font-family: var(--zd-font-number);
+  font-weight: var(--zd-font-bold);
+  margin-bottom: 0.25rem;
+}
+
+.zd-stats-item__label {
+  font-size: var(--zd-text-sm);
+  color: var(--zd-gray-600);
+}
+
+.zd-stats-item--primary .zd-stats-item__value {
+  color: var(--zd-primary);
+}
+
+.zd-stats-item--success .zd-stats-item__value {
+  color: var(--zd-success);
+}
+
+.zd-stats-item--info .zd-stats-item__value {
+  color: var(--zd-info);
+}
+
+.zd-stats-item--warning .zd-stats-item__value {
+  color: var(--zd-warning);
+}
+
+/* ==================== 交互效果 ==================== */
+
+/* 触摸反馈 */
+.zd-touchable {
+  transition: all var(--zd-duration-fast) var(--zd-ease-out);
+}
+
+.zd-touchable:active {
+  transform: scale(0.98);
+  opacity: 0.8;
+}
+
+/* 加载动画 */
+.zd-loading {
+  display: inline-block;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid var(--zd-gray-200);
+  border-radius: 50%;
+  border-top-color: var(--zd-primary);
+  animation: zd-spin 1s linear infinite;
+}
+
+@keyframes zd-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 淡入动画 */
+.zd-fade-in {
+  animation: zd-fade-in var(--zd-duration-normal) var(--zd-ease-out);
+}
+
+@keyframes zd-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==================== 响应式工具类 ==================== */
+
+.zd-hidden-mobile {
+  display: none;
+}
+
+.zd-visible-mobile {
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .zd-hidden-mobile {
+    display: block;
+  }
+
+  .zd-visible-mobile {
+    display: none;
+  }
+}
