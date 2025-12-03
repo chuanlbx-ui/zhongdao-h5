@@ -121,7 +121,7 @@ const LoginPage: React.FC = () => {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(to bottom, #FEF2F2, #FFFFFF)' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(to bottom, #FEF2F2, #FFFFFF)', paddingBottom: '64px', display: 'flex', flexDirection: 'column' }}>
       {/* 顶部装饰 */}
       <div style={{ position: 'relative', height: '192px', background: 'linear-gradient(to right, #DC2626, #F97316)' }}>
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.1)' }}></div>
@@ -384,12 +384,53 @@ const LoginPage: React.FC = () => {
       </div>
 
       {/* 底部信息 */}
-      <div style={{ textAlign: 'center', padding: '24px', fontSize: '12px', color: '#9CA3AF' }}>
+      <div style={{ textAlign: 'center', padding: '24px', fontSize: '12px', color: '#9CA3AF', marginTop: 'auto' }}>
         <p>© 2024 中道商城 版权所有</p>
         <p style={{ marginTop: '4px' }}>客服热线：400-888-8888</p>
       </div>
 
-              </div>
+      {/* 底部导航 */}
+      <nav style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: 'white',
+        borderTop: '1px solid #E5E7EB',
+        height: '64px'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', height: '100%' }}>
+          {[
+            { key: 'home', icon: '🏠', label: '首页', path: '/' },
+            { key: 'shop', icon: '🏪', label: '店铺', path: '/' },
+            { key: 'profile', icon: '👤', label: '我的', path: '/' }
+          ].map((item) => (
+            <button
+              key={item.key}
+              onClick={() => navigate(item.path)}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flex: 1,
+                height: '100%',
+                background: 'none',
+                border: 'none',
+                color: '#6B7280',
+                cursor: 'pointer',
+                transition: 'color 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = '#111827'}
+              onMouseLeave={(e) => e.currentTarget.style.color = '#6B7280'}
+            >
+              <span style={{ fontSize: '20px', marginBottom: '4px' }}>{item.icon}</span>
+              <span style={{ fontSize: '12px' }}>{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
+    </div>
   )
 }
 

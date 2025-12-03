@@ -204,3 +204,23 @@ export const commissionApi = {
   getStatistics: () => 
     apiClient.get('/commission/statistics'),
 }
+
+// ==================== Banner相关 ====================
+export interface Banner {
+  id: string
+  image_url: string
+  title: string
+  description: string
+  link_url: string
+}
+
+// API响应包装类型
+export interface ApiResponse<T> {
+  success: boolean
+  data: T
+}
+
+export const bannerApi = {
+  getList: () => 
+    apiClient.get<ApiResponse<Banner[]>>('/banners'),
+}

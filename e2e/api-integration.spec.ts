@@ -9,7 +9,7 @@ test.describe('API集成测试', () => {
 
   test('API测试组件应该正确加载', async ({ page }) => {
     // 检查API测试组件是否可见
-    await expect(page.locator('text=API集成测试')).toBeVisible();
+    await expect(page.locator('h3:has-text("API集成测试")')).toBeVisible();
     await expect(page.locator('text=测试结果说明：')).toBeVisible();
 
     // 检查说明文字
@@ -87,7 +87,7 @@ test.describe('网络错误处理', () => {
     const hasErrorHandling = pageContent.includes('连接错误') || pageContent.includes('后端服务') || pageContent.includes('网络问题');
 
     // 即使后端不可用，测试组件也应该正常显示
-    await expect(page.locator('text=API集成测试')).toBeVisible();
+    await expect(page.locator('h3:has-text("API集成测试")')).toBeVisible();
     await expect(page.locator('text=测试结果说明：')).toBeVisible();
   });
 });

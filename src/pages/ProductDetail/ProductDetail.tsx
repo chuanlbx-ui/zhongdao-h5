@@ -1,30 +1,32 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { productApi } from '@/api'
 
 interface Product {
   id: string
   name: string
   description: string
-  basePrice: number
-  images: string[]
+  base_price: number
+  original_price?: number
+  images: string | string[]
   stock: number
   sales: number
-  tags: string[]
+  status: string
+  created_at: string
+  updated_at: string
   specs?: ProductSpec[]
   category: string
-  shopInfo: {
-    name: string
-    level: string
-    rating: number
-  }
+  tags?: string[]
 }
 
 interface ProductSpec {
   id: string
+  product_id: string
   name: string
   price: number
   stock: number
-  sku: string
+  created_at: string
+  updated_at: string
 }
 
 const ProductDetail: React.FC = () => {
@@ -41,43 +43,19 @@ const ProductDetail: React.FC = () => {
   const [superiorShop, setSuperiorShop] = useState<{ name: string; manager: string; phone: string; level: string; rating: number }>({ name: '上级云店', manager: '王店长', phone: '13800000000', level: '二星店长', rating: 4.8 })
   const [reviews, setReviews] = useState<Array<{ rating: number; content: string; time: string }>>([])
 
-  // 模拟商品数据
-  const mockProduct: Product = {
-    id: productId || '1',
-    name: '优质有机苹果 5斤装',
-    description: '精选山地有机苹果，自然生长，无农药残留，口感脆甜，营养丰富。每一颗苹果都经过严格筛选，确保品质上乘。适合全家人享用，是健康生活的理想选择。',
-    basePrice: 68,
-    images: [
-      '/api/placeholder/400/400',
-      '/api/placeholder/400/400',
-      '/api/placeholder/400/400'
-    ],
-    stock: 150,
-    sales: 256,
-    tags: ['新品', '热销', '有机'],
-    specs: [
-      { id: '1', name: '5斤装', price: 68, stock: 100, sku: 'APPLE-5JIN' },
-      { id: '2', name: '10斤装', price: 128, stock: 50, sku: 'APPLE-10JIN' },
-      { id: '3', name: '20斤装', price: 238, stock: 30, sku: 'APPLE-20JIN' }
-    ],
-    category: '食品饮料',
-    shopInfo: {
-      name: '中道商城官方店',
-      level: '三星代理',
-      rating: 4.8
-    }
-  }
-
   useEffect(() => {
-    // 模拟加载商品数据
+    // 从API加载商品数据
     const loadProduct = async () => {
       setLoading(true)
       try {
-        // 模拟API调用延迟
-        await new Promise(resolve => setTimeout(resolve, 800))
-        setProduct(mockProduct)
-        if (mockProduct.specs && mockProduct.specs.length > 0) {
-          setSelectedSpec(mockProduct.specs[0])
+        if (!productId) {
+          throw new Error('商品ID不存在')
+        }
+        const response = await productApi.getDetail(productId)
+        const productData = response.data
+        setProduct(productData)
+        if (productData.specs && productData.specs.length > 0) {
+          setSelectedSpec(productData.specs[0])
         }
       } catch (error) {
         console.error('加载商品失败:', error)
@@ -344,7 +322,7 @@ const ProductDetail: React.FC = () => {
       <div style={{ background: 'white', marginTop: '8px', padding: '16px' }}>
         {/* 标签 */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-          {product.tags.map((tag) => (
+          {productTags.map((tag) => (
             <span
               key={tag}
               style={{
@@ -382,13 +360,13 @@ const ProductDetail: React.FC = () => {
           }}>
             ¥{currentPrice}
           </span>
-          {product.basePrice !== currentPrice && (
+          {product.original_price && product.original_price !== currentPrice && (
             <span style={{
               fontSize: '16px',
               color: '#9CA3AF',
               textDecoration: 'line-through'
             }}>
-              ¥{product.basePrice}
+              ¥{product.original_price}
             </span>
           )}
           <span style={{

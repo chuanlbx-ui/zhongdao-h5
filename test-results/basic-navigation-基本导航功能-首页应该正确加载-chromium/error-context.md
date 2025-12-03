@@ -1,0 +1,59 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - main [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e7]:
+        - text: 你尚未登录，请
+        - button "登录" [ref=e8] [cursor=pointer]
+        - text: ！
+      - generic [ref=e9]:
+        - img "banner" [ref=e10]
+        - generic [ref=e11]:
+          - button "‹" [ref=e12] [cursor=pointer]
+          - button "›" [ref=e13] [cursor=pointer]
+      - generic [ref=e18]:
+        - button "🛒 购物车" [ref=e19] [cursor=pointer]:
+          - generic [ref=e21]: 🛒
+          - generic [ref=e22]: 购物车
+        - button "📦 订单" [ref=e23] [cursor=pointer]:
+          - generic [ref=e25]: 📦
+          - generic [ref=e26]: 订单
+        - button "💰 积分" [ref=e27] [cursor=pointer]:
+          - generic [ref=e29]: 💰
+          - generic [ref=e30]: 积分
+        - button "👥 团队" [ref=e31] [cursor=pointer]:
+          - generic [ref=e33]: 👥
+          - generic [ref=e34]: 团队
+      - generic [ref=e35]:
+        - heading "商品分类" [level=3] [ref=e36]
+        - generic [ref=e37]:
+          - button "🥤 食品饮料" [ref=e38] [cursor=pointer]:
+            - generic [ref=e39]: 🥤
+            - generic [ref=e40]: 食品饮料
+          - button "🧴 日用品" [ref=e41] [cursor=pointer]:
+            - generic [ref=e42]: 🧴
+            - generic [ref=e43]: 日用品
+          - button "📱 数码产品" [ref=e44] [cursor=pointer]:
+            - generic [ref=e45]: 📱
+            - generic [ref=e46]: 数码产品
+      - generic [ref=e47]:
+        - generic [ref=e48]:
+          - heading "推荐商品" [level=3] [ref=e49]
+          - button "查看更多 →" [ref=e50] [cursor=pointer]
+        - generic [ref=e52]:
+          - generic [ref=e53]: 📦
+          - generic [ref=e54]: 暂无商品数据
+  - navigation [ref=e55]:
+    - generic [ref=e56]:
+      - button "🏠 首页" [ref=e57] [cursor=pointer]:
+        - generic [ref=e58]: 🏠
+        - generic [ref=e59]: 首页
+      - button "🏪 店铺" [ref=e60] [cursor=pointer]:
+        - generic [ref=e61]: 🏪
+        - generic [ref=e62]: 店铺
+      - button "👤 我的" [ref=e63] [cursor=pointer]:
+        - generic [ref=e64]: 👤
+        - generic [ref=e65]: 我的
+```

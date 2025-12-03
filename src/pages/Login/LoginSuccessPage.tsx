@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useAuthStore } from '@/stores/authStore'
 
 interface LoginSuccessState {
   user: any
@@ -18,6 +19,25 @@ const LoginSuccessPage: React.FC = () => {
   })
 
   useEffect(() => {
+    // 确保用户信息已保存到 Zustand store
+    if (location.state?.user) {
+      const authStore = useAuthStore.getState()
+      if (!authStore.isAuthenticated || !authStore.token) {
+        // 从 location.state 中恢复用户信息
+        // 注意：此时 token 应该已经在 PasswordLoginPage 中设置过了
+        // 但如果还没有，我们需要从 localStorage 恢复
+        const storedAuth = JSON.parse(localStorage.getItem('auth-storage') || '{}')
+        if (storedAuth?.state?.token && storedAuth?.state?.user) {
+          console.log('[LoginSuccessPage] 从 localStorage 恢复认证状态')
+          authStore.handleLoginSuccess({
+            user: storedAuth.state.user,
+            token: storedAuth.state.token,
+            isNewUser: location.state?.user?.isNewUser || false
+          })
+        }
+      }
+    }
+
     // 页面加载完成后的动画
     const confettiTimer = setTimeout(() => {
       setState(prev => ({ ...prev, showConfetti: false }))
@@ -40,7 +60,7 @@ const LoginSuccessPage: React.FC = () => {
       clearTimeout(confettiTimer)
       clearInterval(timer)
     }
-  }, [])
+  }, [location.state?.user])
 
   // 监听countDown变化，当为0时跳转
   useEffect(() => {
@@ -51,8 +71,26 @@ const LoginSuccessPage: React.FC = () => {
   }, [state.countDown, navigate, location.state?.from])
 
   const goToHome = () => {
-    const from = location.state?.from || '/'
-    navigate(from)
+    // 在导航前，确保认证状态已正确保存
+    const authStore = useAuthStore.getState()
+    if (authStore.isAuthenticated && authStore.token) {
+      const from = location.state?.from || '/'
+      navigate(from)
+    } else {
+      console.warn('[LoginSuccessPage] 无法跳转：认证状态未正确保存')
+      // 尝试从 localStorage 恢复
+      const storedAuth = JSON.parse(localStorage.getItem('auth-storage') || '{}')
+      if (storedAuth?.state?.token && storedAuth?.state?.user) {
+        authStore.handleLoginSuccess({
+          user: storedAuth.state.user,
+          token: storedAuth.state.token
+        })
+        setTimeout(() => {
+          const from = location.state?.from || '/'
+          navigate(from)
+        }, 100)
+      }
+    }
   }
 
   const getUserLevelDisplay = (level: string) => {

@@ -9,67 +9,163 @@ import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import dayjs from 'dayjs'
 
+// 数据库配置和模型
+import { sequelize, testConnection } from './db/config.js'
+import { User, Product, ProductSpec, Banner } from './db/models/index.js'
+import { Op } from 'sequelize'
+
 const app = express()
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT || 3000
 const JWT_SECRET = process.env.JWT_SECRET || 'zhongdao-mall-secret-key'
 
 // CSRF令牌存储
 const csrfTokens = new Map()
 const CSRF_TOKEN_EXPIRY = 24 * 60 * 60 * 1000 // 24小时
 
-// 模拟用户数据
-const users = new Map()
+// 短信验证码存储（仍然使用内存，因为验证码是临时的）
 const smsCodes = new Map()
-const products = []
 
 // 初始化一些测试数据
-const initTestData = () => {
-  // 添加测试用户
-  users.set('13800138000', {
-    id: 'user_001',
-    phone: '13800138000',
-    password: bcrypt.hashSync('123456', 10),
-    name: '测试用户',
-    avatar: 'https://via.placeholder.com/100',
-    createdAt: dayjs().format('YYYY-MM-DD HH:mm:ss')
-  })
-
-  // 添加测试商品
-  products.push(
-    {
-      id: 'prod_001',
-      name: 'iPhone 15 Pro',
-      price: 7999,
-      originalPrice: 8999,
-      image: 'https://via.placeholder.com/300x300/4F46E5/ffffff?text=iPhone+15+Pro',
-      description: '最新款iPhone，配备A17 Pro芯片',
-      category: '手机数码',
-      stock: 100,
-      sales: 50
-    },
-    {
-      id: 'prod_002',
-      name: 'MacBook Air M2',
-      price: 8999,
-      originalPrice: 9999,
-      image: 'https://via.placeholder.com/300x300/10B981/ffffff?text=MacBook+Air+M2',
-      description: '轻薄便携，性能强劲的笔记本电脑',
-      category: '电脑办公',
-      stock: 50,
-      sales: 30
-    },
-    {
-      id: 'prod_003',
-      name: 'AirPods Pro 2',
-      price: 1899,
-      originalPrice: 1999,
-      image: 'https://via.placeholder.com/300x300/F59E0B/ffffff?text=AirPods+Pro+2',
-      description: '主动降噪无线耳机',
-      category: '耳机音响',
-      stock: 200,
-      sales: 150
+const initTestData = async () => {
+  try {
+    // 检查是否已有测试数据
+    const existingUser = await User.findOne({ where: { phone: '13800138000' } })
+    if (!existingUser) {
+      // 添加测试用户
+      await User.create({
+        phone: '13800138000',
+        password: bcrypt.hashSync('123456', 10),
+        name: '测试用户',
+        nickname: '测试用户',
+        avatar: 'https://via.placeholder.com/100',
+        level: 'VIP',
+        points_balance: 1000
+      })
+      console.log('✅ 测试用户已创建')
     }
-  )
+
+    // 检查是否已有Banner数据
+    const existingBanners = await Banner.count()
+    if (existingBanners === 0) {
+      // 添加测试Banner
+      const bannerData = [
+        {
+          image_url: 'https://via.placeholder.com/1280x720?text=Banner+1',
+          title: '夏季促销',
+          description: '全场商品8折起',
+          link_url: '/products?category=夏季',
+          order: 3,
+          status: 'ACTIVE'
+        },
+        {
+          image_url: 'https://via.placeholder.com/1280x720?text=Banner+2',
+          title: '新品上市',
+          description: '最新款iPhone 15 Pro',
+          link_url: '/products/iphone-15-pro',
+          order: 2,
+          status: 'ACTIVE'
+        },
+        {
+          image_url: 'https://via.placeholder.com/1280x720?text=Banner+3',
+          title: '会员专享',
+          description: '会员购物满1000减200',
+          link_url: '/member-center',
+          order: 1,
+          status: 'ACTIVE'
+        }
+      ]
+
+      await Banner.bulkCreate(bannerData)
+      console.log('✅ 测试Banner已创建')
+    }
+
+    // 检查是否已有商品数据
+    const existingProducts = await Product.count()
+    if (existingProducts === 0) {
+      // 添加测试商品
+      const productData = [
+        {
+          name: 'iPhone 15 Pro',
+          description: '最新款iPhone，配备A17 Pro芯片',
+          base_price: 7999,
+          original_price: 8999,
+          images: ['/uploads/iphone-15-pro.jpg'],
+          category: '手机数码',
+          stock: 100,
+          sales: 50,
+          status: 'ACTIVE'
+        },
+        {
+          name: 'MacBook Air M2',
+          description: '轻薄便携，性能强劲的笔记本电脑',
+          base_price: 8999,
+          original_price: 9999,
+          images: ['/uploads/macbook-air-m2.jpg'],
+          category: '电脑办公',
+          stock: 50,
+          sales: 30,
+          status: 'ACTIVE'
+        },
+        {
+          name: 'AirPods Pro 2',
+          description: '主动降噪无线耳机',
+          base_price: 1899,
+          original_price: 1999,
+          images: ['/uploads/airpods-pro-2.jpg'],
+          category: '耳机音响',
+          stock: 200,
+          sales: 150,
+          status: 'ACTIVE'
+        },
+        {
+          name: 'iPad Pro 12.9',
+          description: '专业级平板电脑，配备M2芯片',
+          base_price: 7699,
+          original_price: 8699,
+          images: ['/uploads/ipad-pro-12.9.jpg'],
+          category: '平板电脑',
+          stock: 80,
+          sales: 40,
+          status: 'ACTIVE'
+        },
+        {
+          name: 'Apple Watch Series 9',
+          description: '全面屏智能手表，健康监测功能强大',
+          base_price: 2999,
+          original_price: 3199,
+          images: ['/uploads/apple-watch-series-9.jpg'],
+          category: '智能穿戴',
+          stock: 120,
+          sales: 60,
+          status: 'ACTIVE'
+        }
+      ]
+
+      for (const prodData of productData) {
+        const product = await Product.create(prodData)
+        
+        // 为每个商品添加规格
+        await ProductSpec.bulkCreate([
+          {
+            product_id: product.id,
+            name: '标准配置',
+            price: prodData.base_price,
+            stock: prodData.stock
+          },
+          {
+            product_id: product.id,
+            name: '高配版',
+            price: prodData.base_price + 1000,
+            stock: prodData.stock / 2
+          }
+        ])
+      }
+      
+      console.log('✅ 测试商品已创建')
+    }
+  } catch (error) {
+    console.error('❌ 初始化测试数据失败:', error)
+  }
 }
 
 // 清理过期的CSRF令牌
@@ -113,6 +209,13 @@ app.use(morgan('combined'))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 app.use(cookieParser())
+
+// 提供静态文件服务
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+app.use('/uploads', express.static(join(__dirname, '../uploads')))
 
 // 速率限制
 const limiter = rateLimit({
@@ -174,8 +277,21 @@ const csrfMiddleware = (req, res, next) => {
   next()
 }
 
-// 应用CSRF中间件到所有路由
-app.use(csrfMiddleware)
+// 定义不需要CSRF保护的路由
+const csrfExcludedPaths = [
+  '/api/v1/auth/password-login',
+  '/api/v1/auth/password-register'
+]
+
+// 应用CSRF中间件，排除特定路由
+app.use((req, res, next) => {
+  if (csrfExcludedPaths.includes(req.path)) {
+    // 跳过CSRF验证
+    return next()
+  }
+  // 应用CSRF中间件
+  csrfMiddleware(req, res, next)
+})
 
 // JWT验证中间件
 const authMiddleware = (req, res, next) => {
@@ -373,7 +489,7 @@ app.post('/api/v1/auth/password-login', async (req, res) => {
       })
     }
     
-    const user = users.get(phone)
+    const user = await User.findOne({ where: { phone } })
     
     if (!user) {
       return res.status(400).json({
@@ -382,8 +498,8 @@ app.post('/api/v1/auth/password-login', async (req, res) => {
       })
     }
     
-    // 验证密码（这里简化处理，实际项目中应该使用bcrypt等加密方式）
-    if (password !== '123456') { // 开发环境默认密码
+    // 验证密码
+    if (!bcrypt.compareSync(password, user.password)) {
       return res.status(400).json({
         success: false,
         message: '手机号或密码错误'
@@ -408,7 +524,9 @@ app.post('/api/v1/auth/password-login', async (req, res) => {
         id: user.id,
         phone: user.phone,
         name: user.name,
-        avatar: user.avatar || 'https://via.placeholder.com/100'
+        nickname: user.nickname,
+        avatar: user.avatar,
+        level: user.level
       }
     })
   } catch (error) {
@@ -444,7 +562,8 @@ app.post('/api/v1/auth/password-register', async (req, res) => {
     }
     
     // 检查用户是否已存在
-    if (users.has(phone)) {
+    const existingUser = await User.findOne({ where: { phone } })
+    if (existingUser) {
       return res.status(400).json({
         error: {
           code: 'USER_EXISTS',
@@ -454,18 +573,15 @@ app.post('/api/v1/auth/password-register', async (req, res) => {
     }
     
     // 创建新用户
-    const user = {
-      id: `user_${Date.now()}`,
+    const user = await User.create({
       phone,
       password: bcrypt.hashSync(password, 10), // 加密存储密码
       name: `用户${phone.slice(-4)}`,
+      nickname: `用户${phone.slice(-4)}`,
       avatar: 'https://via.placeholder.com/100',
-      referralCode,
-      wxUserId,
-      createdAt: dayjs().format('YYYY-MM-DD HH:mm:ss')
-    }
-    
-    users.set(phone, user)
+      referral_code: referralCode,
+      wx_user_id: wxUserId
+    })
     
     // 生成JWT令牌
     const token = jwt.sign(
@@ -485,7 +601,9 @@ app.post('/api/v1/auth/password-register', async (req, res) => {
         id: user.id,
         phone: user.phone,
         name: user.name,
-        avatar: user.avatar
+        nickname: user.nickname,
+        avatar: user.avatar,
+        level: user.level
       }
     })
   } catch (error) {
@@ -525,16 +643,14 @@ app.post('/api/v1/sms/verify-and-bind', async (req, res) => {
     }
     
     // 查找或创建用户
-    let user = users.get(phone)
+    let user = await User.findOne({ where: { phone } })
     if (!user) {
-      user = {
-        id: `user_${Date.now()}`,
+      user = await User.create({
         phone,
         name: `用户${phone.slice(-4)}`,
-        avatar: 'https://via.placeholder.com/100',
-        createdAt: dayjs().format('YYYY-MM-DD HH:mm:ss')
-      }
-      users.set(phone, user)
+        nickname: `用户${phone.slice(-4)}`,
+        avatar: 'https://via.placeholder.com/100'
+      })
     }
     
     // 生成JWT令牌
@@ -558,7 +674,9 @@ app.post('/api/v1/sms/verify-and-bind', async (req, res) => {
         id: user.id,
         phone: user.phone,
         name: user.name,
-        avatar: user.avatar
+        nickname: user.nickname,
+        avatar: user.avatar,
+        level: user.level
       }
     })
   } catch (error) {
@@ -573,83 +691,157 @@ app.post('/api/v1/sms/verify-and-bind', async (req, res) => {
 })
 
 // 获取用户信息
-app.get('/api/v1/user/info', authMiddleware, (req, res) => {
-  const user = users.get(req.user.phone)
-  if (!user) {
-    return res.status(404).json({
+app.get('/api/v1/user/info', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.userId)
+    if (!user) {
+      return res.status(404).json({
+        error: {
+          code: 'USER_NOT_FOUND',
+          message: '用户不存在'
+        }
+      })
+    }
+    
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        phone: user.phone,
+        name: user.name,
+        nickname: user.nickname,
+        avatar: user.avatar,
+        level: user.level,
+        pointsBalance: user.points_balance,
+        totalSales: user.total_sales,
+        directCount: user.direct_count,
+        teamCount: user.team_count,
+        createdAt: user.created_at
+      }
+    })
+  } catch (error) {
+    console.error('获取用户信息失败:', error)
+    res.status(500).json({
+      success: false,
       error: {
-        code: 'USER_NOT_FOUND',
-        message: '用户不存在'
+        code: 'INTERNAL_SERVER_ERROR',
+        message: '获取用户信息失败'
       }
     })
   }
-  
-  res.json({
-    success: true,
-    user: {
-      id: user.id,
-      phone: user.phone,
-      name: user.name,
-      avatar: user.avatar,
-      createdAt: user.createdAt
-    }
-  })
 })
 
 // 获取商品列表
-app.get('/api/v1/products', (req, res) => {
-  const { page = 1, limit = 20, category, search } = req.query
-  
-  let filteredProducts = [...products]
-  
-  // 按分类筛选
-  if (category) {
-    filteredProducts = filteredProducts.filter(p => p.category === category)
-  }
-  
-  // 按搜索关键词筛选
-  if (search) {
-    const keyword = search.toLowerCase()
-    filteredProducts = filteredProducts.filter(p => 
-      p.name.toLowerCase().includes(keyword) ||
-      p.description.toLowerCase().includes(keyword)
-    )
-  }
-  
-  // 分页
-  const start = (page - 1) * limit
-  const end = start + parseInt(limit)
-  const paginatedProducts = filteredProducts.slice(start, end)
-  
-  res.json({
-    success: true,
-    data: {
-      products: paginatedProducts,
-      total: filteredProducts.length,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      pages: Math.ceil(filteredProducts.length / limit)
+app.get('/api/v1/products', async (req, res) => {
+  try {
+    const { page = 1, limit = 20, category, search } = req.query
+    
+    // 构建查询条件
+    const where = {}
+    if (category) {
+      where.category = category
     }
-  })
-})
-
-// 获取商品详情
-app.get('/api/v1/products/:id', (req, res) => {
-  const product = products.find(p => p.id === req.params.id)
-  
-  if (!product) {
-    return res.status(404).json({
+    if (search) {
+      const keyword = search.toLowerCase()
+      where[Op.or] = [
+        { name: { [Op.like]: `%${keyword}%` } },
+        { description: { [Op.like]: `%${keyword}%` } }
+      ]
+    }
+    
+    // 查询商品列表
+    const { count, rows } = await Product.findAndCountAll({
+      where,
+      include: [{
+        model: ProductSpec,
+        as: 'specs'
+      }],
+      limit: parseInt(limit),
+      offset: (parseInt(page) - 1) * parseInt(limit),
+      order: [['created_at', 'DESC']]
+    })
+    
+    res.json({
+      success: true,
+      data: {
+        items: rows,
+        total: count,
+        page: parseInt(page),
+        perPage: parseInt(limit),
+        pages: Math.ceil(count / parseInt(limit))
+      }
+    })
+  } catch (error) {
+    console.error('获取商品列表失败:', error)
+    res.status(500).json({
+      success: false,
       error: {
-        code: 'PRODUCT_NOT_FOUND',
-        message: '商品不存在'
+        code: 'INTERNAL_SERVER_ERROR',
+        message: '获取商品列表失败'
       }
     })
   }
-  
-  res.json({
-    success: true,
-    data: product
-  })
+})
+
+// 获取商品详情
+app.get('/api/v1/products/:id', async (req, res) => {
+  try {
+    const product = await Product.findByPk(req.params.id, {
+      include: [{
+        model: ProductSpec,
+        as: 'specs'
+      }]
+    })
+    
+    if (!product) {
+      return res.status(404).json({
+        error: {
+          code: 'PRODUCT_NOT_FOUND',
+          message: '商品不存在'
+        }
+      })
+    }
+    
+    res.json({
+      success: true,
+      data: product
+    })
+  } catch (error) {
+    console.error('获取商品详情失败:', error)
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: '获取商品详情失败'
+      }
+    })
+  }
+})
+
+// 获取首页Banner列表
+app.get('/api/v1/banners', async (req, res) => {
+  try {
+    // 查询所有激活状态的Banner，按order降序排序
+    const banners = await Banner.findAll({
+      where: { status: 'ACTIVE' },
+      order: [['order', 'DESC']],
+      attributes: ['id', 'image_url', 'title', 'description', 'link_url']
+    })
+    
+    res.json({
+      success: true,
+      data: banners
+    })
+  } catch (error) {
+    console.error('获取Banner列表失败:', error)
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: '获取Banner列表失败'
+      }
+    })
+  }
 })
 
 // 404处理
@@ -673,26 +865,60 @@ app.use((err, req, res, next) => {
   })
 })
 
-// 初始化数据
-initTestData()
+// 初始化数据库和数据
+const initDatabase = async () => {
+  try {
+    // 测试数据库连接
+    await testConnection()
+    
+    // 同步数据库表
+    await sequelize.sync({
+      alter: true, // 自动修改表结构
+      force: false // 不删除现有表
+    })
+    console.log('✅ 数据库表同步完成！')
+    
+    // 初始化测试数据
+    await initTestData()
+    
+    return true
+  } catch (error) {
+    console.error('❌ 数据库初始化失败:', error)
+    return false
+  }
+}
 
 // 启动服务器
-app.listen(PORT, () => {
-  console.log(`🚀 中道商城API服务器启动成功！`)
-  console.log(`📍 服务地址: http://localhost:${PORT}`)
-  console.log(`🔧 API前缀: /api/v1`)
-  console.log(`🌐 CORS允许的域名:`, corsOptions.origin)
-  console.log(`🔑 CSRF保护: 已启用`)
-  console.log(`📱 短信验证码: 开发环境显示在控制台`)
-  console.log('')
-  console.log('📋 可用接口:')
-  console.log('  GET  /api/health                    - 健康检查')
-  console.log('  POST /api/v1/sms/send-code          - 发送短信验证码')
-  console.log('  POST /api/v1/sms/verify-code        - 验证短信验证码')
-  console.log('  POST /api/v1/sms/verify-and-bind    - 短信验证并登录')
-  console.log('  GET  /api/v1/user/info              - 获取用户信息')
-  console.log('  GET  /api/v1/products               - 获取商品列表')
-  console.log('  GET  /api/v1/products/:id           - 获取商品详情')
-})
+const startServer = async () => {
+  // 初始化数据库
+  const dbInitialized = await initDatabase()
+  if (!dbInitialized) {
+    console.error('❌ 数据库初始化失败，无法启动服务器')
+    process.exit(1)
+  }
+  
+  // 启动HTTP服务器
+  app.listen(PORT, () => {
+    console.log(`🚀 中道商城API服务器启动成功！`)
+    console.log(`📍 服务地址: http://localhost:${PORT}`)
+    console.log(`🔧 API前缀: /api/v1`)
+    console.log(`🌐 CORS允许的域名:`, corsOptions.origin)
+    console.log(`🔑 CSRF保护: 已启用`)
+    console.log(`📱 短信验证码: 开发环境显示在控制台`)
+    console.log('')
+    console.log('📋 可用接口:')
+    console.log('  GET  /api/health                    - 健康检查')
+    console.log('  POST /api/v1/sms/send-code          - 发送短信验证码')
+    console.log('  POST /api/v1/sms/verify-code        - 验证短信验证码')
+    console.log('  POST /api/v1/sms/verify-and-bind    - 短信验证并登录')
+    console.log('  GET  /api/v1/user/info              - 获取用户信息')
+    console.log('  GET  /api/v1/banners                - 获取首页Banner列表')
+    console.log('  GET  /api/v1/products               - 获取商品列表')
+    console.log('  GET  /api/v1/products/:id           - 获取商品详情')
+  })
+}
+
+// 启动服务器
+startServer()
 
 export default app

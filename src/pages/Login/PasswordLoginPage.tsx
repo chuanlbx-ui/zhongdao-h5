@@ -10,6 +10,35 @@ interface PasswordLoginState {
   isRegister: boolean
 }
 
+interface PasswordStrength {
+  score: number // 0-5
+  text: string
+  color: string
+}
+
+// ... 密码强度检查函数
+const checkPasswordStrength = (password: string): PasswordStrength => {
+  let score = 0
+  
+  if (password.length >= 8) score++
+  if (password.length >= 12) score++
+  if (/[a-z]/.test(password)) score++
+  if (/[A-Z]/.test(password)) score++
+  if (/\d/.test(password)) score++
+  if (/[^a-zA-Z0-9]/.test(password)) score++
+  
+  if (score <= 1) return { score, text: '非常弱', color: '#EF4444' }
+  if (score <= 2) return { score, text: '弱', color: '#F97316' }
+  if (score <= 3) return { score, text: '一般', color: '#FBBF24' }
+  if (score <= 4) return { score, text: '强', color: '#10B981' }
+  return { score, text: '非常强', color: '#059669' }
+}
+
+// ... 推荐码格式验证
+const isValidReferralCode = (code: string): boolean => {
+  return /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{6}$/.test(code)
+}
+
 const PasswordLoginPage: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
@@ -60,12 +89,17 @@ const PasswordLoginPage: React.FC = () => {
   // 验证输入
   const validateInput = () => {
     if (!formData.phone || formData.phone.length !== 11) {
-      setError('请输入正确的手机号')
+      setError('请输入正确的11位手机号')
       return false
     }
 
-    if (!formData.password || formData.password.length < 6) {
-      setError('密码长度至少6位')
+    if (!formData.password) {
+      setError('密码不能为空')
+      return false
+    }
+
+    if (formData.password.length < 8) {
+      setError('密码长度至少8位')
       return false
     }
 
@@ -76,6 +110,11 @@ const PasswordLoginPage: React.FC = () => {
 
     if (formData.isRegister && !referralCode) {
       setError('请输入推荐人邀请码')
+      return false
+    }
+
+    if (formData.isRegister && !isValidReferralCode(referralCode)) {
+      setError('推荐码格式错误，应为6位数字和字母组合')
       return false
     }
 
@@ -97,15 +136,48 @@ const PasswordLoginPage: React.FC = () => {
 
       if (response.success) {
         const authStore = useAuthStore.getState()
+        // API 返回数据格式：{ success: true, data: { user, token }, message, timestamp }
+        const userData = response.data?.user || response.user
+        const tokenData = response.data?.token || response.token
+        
+        if (!userData || !tokenData) {
+          setError('登录响应数据不完整')
+          setIsLoading(false)
+          return
+        }
+        
         authStore.handleLoginSuccess({ 
-          user: response.user, 
-          token: response.token, 
+          user: userData, 
+          token: tokenData, 
           isNewUser: false 
+        })
+        
+        // 一定要下一个水平，以便确保 zustand persist 中间件完成保存
+        // 并且认证业务逻辑会使用最新的 token
+        await new Promise(resolve => setTimeout(resolve, 150))
+        
+        // 科学整的待方：分别批量state对象来获取，以及核查localStorage
+        const currentAuthState = useAuthStore.getState()
+        const localStorageState = JSON.parse(localStorage.getItem('auth-storage') || '{}')
+        
+        console.log('[Login] 认证状态详细信息:', {
+          zustand: {
+            isAuthenticated: currentAuthState.isAuthenticated,
+            hasToken: !!currentAuthState.token,
+            hasUser: !!currentAuthState.user,
+            userId: currentAuthState.user?.id,
+            tokenPreview: currentAuthState.token?.substring(0, 10)
+          },
+          localStorage: {
+            isAuthenticated: localStorageState?.state?.isAuthenticated,
+            hasToken: !!localStorageState?.state?.token,
+            hasUser: !!localStorageState?.state?.user
+          }
         })
         
         const from = location.state?.from || '/'
         navigate('/login-success', {
-          state: { user: response.user, from }
+          state: { user: userData, from }
         })
       } else {
         setError(response.message || '登录失败，请检查手机号和密码')
@@ -113,7 +185,34 @@ const PasswordLoginPage: React.FC = () => {
 
     } catch (err: any) {
       console.error('密码登录失败:', err)
-      setError(err.message || '登录失败，请重试')
+      
+      // ... 详细的错误信息处理
+      // 特别注意：client.ts中覆盖了响应拦截器，错误对象的结构是 err.error 而不是 err.response?.data?.error
+      const errorCode = err.error?.code
+      const errorMessage = err.error?.message
+      const networkError = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+      
+      let displayMessage = '登录失败，请重试'
+      
+      if (networkError) {
+        displayMessage = '网络连接错误，请检查网络或服务器是否运行。'
+        console.error('网络错误详情:', {
+          code: err.code,
+          message: err.message,
+          config: {
+            url: err.config?.url,
+            baseURL: err.config?.baseURL
+          }
+        })
+      } else if (errorCode === 'INVALID_CREDENTIALS') {
+        displayMessage = errorMessage || '手机号或密码错误'
+      } else if (err.response?.status >= 500) {
+        displayMessage = '服务器错误，请稍后重试'
+      } else if (!err.response) {
+        displayMessage = `连接失败：${err.message}。请检查后端服务器是否运行在 http://localhost:3000`
+      }
+      
+      setError(displayMessage)
     } finally {
       setIsLoading(false)
     }
@@ -136,17 +235,58 @@ const PasswordLoginPage: React.FC = () => {
 
       if (response.success) {
         const authStore = useAuthStore.getState()
+        // API 返回数据格式：{ success: true, data: { user, token }, message, timestamp }
+        const userData = response.data?.user || response.user
+        const tokenData = response.data?.token || response.token
+        
+        if (!userData || !tokenData) {
+          setError('注册响应数据不完整')
+          setIsLoading(false)
+          return
+        }
+        
+        // 立即更新认证状态
         authStore.handleLoginSuccess({ 
-          user: response.user, 
-          token: response.token, 
+          user: userData, 
+          token: tokenData, 
           isNewUser: true 
         })
         
+        // 一定要下一个水平，以便确保 zustand persist 中间件完成保存
+        // 并且认证业务逻辑会使用最新的 token
+        await new Promise(resolve => setTimeout(resolve, 150))
+        
         if (referralCode) localStorage.setItem('referral_code_used', referralCode)
         
+        // 科学整的待方：分别批量state对象来获取，以及核查localStorage
+        const currentAuthState = useAuthStore.getState()
+        const localStorageState = JSON.parse(localStorage.getItem('auth-storage') || '{}')
+        
+        console.log('[Register] 认证状态详细信息:', {
+          zustand: {
+            isAuthenticated: currentAuthState.isAuthenticated,
+            hasToken: !!currentAuthState.token,
+            hasUser: !!currentAuthState.user,
+            userId: currentAuthState.user?.id,
+            tokenPreview: currentAuthState.token?.substring(0, 10)
+          },
+          localStorage: {
+            isAuthenticated: localStorageState?.state?.isAuthenticated,
+            hasToken: !!localStorageState?.state?.token,
+            hasUser: !!localStorageState?.state?.user
+          }
+        })
+        
+        // ... 显示该用户的推荐码
+        if (response.referralInfo?.yourCode) {
+          const code = response.referralInfo.yourCode
+          alert(`您的专属推荐码：${code}\n\n您可以将此推荐码分享给朋友注册时使用。`)
+        }
+        
         const from = location.state?.from || '/'
+        console.log('[Register] 即将跳转到登录成功页面')
         navigate('/login-success', {
-          state: { user: response.user, referralCode, from }
+          state: { user: userData, referralCode, referralInfo: response.data?.referralInfo || response.referralInfo, from }
         })
       } else {
         setError(response.message || '注册失败，请重试')
@@ -154,7 +294,42 @@ const PasswordLoginPage: React.FC = () => {
 
     } catch (err: any) {
       console.error('密码注册失败:', err)
-      setError(err.message || '注册失败，请重试')
+      
+      // ... 详细的错误信息处理
+      // 特别注意：client.ts中覆盖了响应拦截器，错误对象的结构是 err.error 而不是 err.response?.data?.error
+      const errorCode = err.error?.code
+      const errorMessage = err.error?.message
+      const errorDetails = err.error?.details
+      const networkError = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+      
+      let displayMessage = errorMessage || '注册失败，请重试'
+      
+      if (networkError) {
+        displayMessage = '网络连接错误，请检查网络或服务器是否运行。'
+        console.error('网络错误详情:', {
+          code: err.code,
+          message: err.message,
+          status: err.response?.status,
+          config: {
+            url: err.config?.url,
+            baseURL: err.config?.baseURL,
+            method: err.config?.method
+          }
+        })
+      } else if (errorCode === 'USER_EXISTS') {
+        displayMessage = `${errorMessage} ${errorDetails?.suggestion || ''}`
+      } else if (errorCode === 'INVALID_REFERRAL_CODE') {
+        displayMessage = `推荐码错误：${errorMessage} ${errorDetails?.suggestion || ''}`
+      } else if (errorCode === 'VALIDATION_ERROR') {
+        displayMessage = errorMessage
+      } else if (err.response?.status >= 500) {
+        displayMessage = '服务器错误，请稍后重试'
+      } else if (!err.response) {
+        // 没有响应的网络错误
+        displayMessage = `连接失败：${err.message}。请检查后端服务器是否运行在 http://localhost:3000`
+      }
+      
+      setError(displayMessage)
     } finally {
       setIsLoading(false)
     }
@@ -183,7 +358,7 @@ const PasswordLoginPage: React.FC = () => {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(to bottom, #FEF2F2, #FFFFFF)' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(to bottom, #FEF2F2, #FFFFFF)', paddingBottom: '64px' }}>
       {/* 顶部导航 */}
       <div style={{ background: 'white', borderBottom: '1px solid #F3F4F6' }}>
         <div style={{ padding: '0 16px' }}>
@@ -313,7 +488,7 @@ const PasswordLoginPage: React.FC = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={handlePasswordChange}
-                  placeholder="请输入密码（至少6位）"
+                  placeholder="请输入密码（至少8位，一航有大小写和数字）"
                   style={{
                     width: '100%',
                     padding: '12px 16px',
@@ -349,6 +524,44 @@ const PasswordLoginPage: React.FC = () => {
                   {showPassword ? '👁️' : '👁️‍🗨️'}
                 </button>
               </div>
+              
+              {/* ... 密码强度检查 */}
+              {formData.password && (
+                <div style={{ marginTop: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '12px', color: '#6B7280' }}>密码强度：</span>
+                    {(() => {
+                      const strength = checkPasswordStrength(formData.password)
+                      return (
+                        <>
+                          <div style={{
+                            display: 'flex',
+                            gap: '2px'
+                          }}>
+                            {[...Array(5)].map((_, i) => (
+                              <div
+                                key={i}
+                                style={{
+                                  width: '16px',
+                                  height: '4px',
+                                  borderRadius: '2px',
+                                  background: i < strength.score ? strength.color : '#E5E7EB'
+                                }}
+                              />
+                            ))}
+                          </div>
+                          <span style={{ fontSize: '12px', color: strength.color, fontWeight: 'medium' }}>
+                            {strength.text}
+                          </span>
+                        </>
+                      )
+                    })()}
+                  </div>
+                  {formData.password.length < 8 && (
+                    <div style={{ fontSize: '12px', color: '#F97316' }}>  最少需要 8 位字符</div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 确认密码输入（注册模式） */}
@@ -423,15 +636,31 @@ const PasswordLoginPage: React.FC = () => {
                   type="text"
                   value={referralCode}
                   onChange={(e) => setReferralCode(e.target.value.trim().toUpperCase())}
-                  placeholder="请输入或自动填充推荐人邀请码"
+                  placeholder="请输入推荐人的6位码（数字和字母）"
+                  maxLength={6}
                   style={{
                     width: '100%',
                     padding: '12px 16px',
-                    border: '1px solid #E5E7EB',
+                    border: referralCode && !isValidReferralCode(referralCode) ? '1px solid #EF4444' : '1px solid #E5E7EB',
                     borderRadius: '8px',
-                    fontSize: '16px'
+                    fontSize: '16px',
+                    transition: 'border-color 0.2s'
                   }}
                 />
+                {/* ... 推荐码格式验证提示 */}
+                {referralCode && (
+                  <div style={{
+                    marginTop: '8px',
+                    fontSize: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    color: isValidReferralCode(referralCode) ? '#10B981' : '#EF4444'
+                  }}>
+                    <span>{isValidReferralCode(referralCode) ? '✓' : '✗'}</span>
+                    <span>{isValidReferralCode(referralCode) ? '推荐码格式正确' : '推荐码应为6位数字和字母组合'}</span>
+                  </div>
+                )}
               </div>
             )}
             
@@ -519,7 +748,7 @@ const PasswordLoginPage: React.FC = () => {
             <div style={{ fontSize: '14px', color: '#1E40AF' }}>
               <p style={{ fontWeight: 'medium', marginBottom: '4px' }}>安全提示</p>
               <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px' }}>
-                <li style={{ marginBottom: '2px' }}>密码长度至少6位，建议包含字母和数字</li>
+                <li style={{ marginBottom: '2px' }}>密码长度至少8位，建议包含大小写和数字</li>
                 <li style={{ marginBottom: '2px' }}>请妥善保管您的密码，不要泄露给他人</li>
                 <li>注册时需要推荐人邀请码，请联系您的推荐人获取</li>
               </ul>
@@ -555,6 +784,48 @@ const PasswordLoginPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* 底部导航 */}
+      <nav style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: 'white',
+        borderTop: '1px solid #E5E7EB',
+        height: '64px'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', height: '100%' }}>
+          {[
+            { key: 'home', icon: '🏠', label: '首页', path: '/' },
+            { key: 'shop', icon: '🏪', label: '店铺', path: '/' },
+            { key: 'profile', icon: '👤', label: '我的', path: '/' }
+          ].map((item) => (
+            <button
+              key={item.key}
+              onClick={() => navigate(item.path)}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flex: 1,
+                height: '100%',
+                background: 'none',
+                border: 'none',
+                color: '#6B7280',
+                cursor: 'pointer',
+                transition: 'color 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = '#111827'}
+              onMouseLeave={(e) => e.currentTarget.style.color = '#6B7280'}
+            >
+              <span style={{ fontSize: '20px', marginBottom: '4px' }}>{item.icon}</span>
+              <span style={{ fontSize: '12px' }}>{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
           </div>
   )
 }

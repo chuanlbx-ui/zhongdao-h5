@@ -30,6 +30,7 @@ interface AuthState {
   user: User | null
   token: string | null
   isAuthenticated: boolean
+  isHydrated: boolean  // 标记Zustand持久化是否已恢复
 
   // 登录状态
   isLoading: boolean
@@ -111,6 +112,9 @@ interface AuthState {
 
   // 登出
   logout: () => void
+
+  // Hydration标记
+  setHydrated: (hydrated: boolean) => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -120,6 +124,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       isAuthenticated: false,
+      isHydrated: false,  // 初始时未恢复
       isLoading: false,
       loginMethod: null,
       phone: null,
@@ -263,7 +268,10 @@ export const useAuthStore = create<AuthState>()(
         get().clearUser()
         // 清除本地存储
         localStorage.removeItem('auth-storage')
-      }
+      },
+
+      // 标记已经完成hydration恢复
+      setHydrated: (hydrated: boolean) => set({ isHydrated: hydrated })
     }),
     {
       name: 'auth-storage',
@@ -277,7 +285,13 @@ export const useAuthStore = create<AuthState>()(
         referralCode: state.referralCode,
         isVerified: state.isVerified,
         certification: state.certification
-      })
+      }),
+      onRehydrateStorage: () => (state) => {
+        // 当hydration完成时，标记isHydrated为true
+        if (state) {
+          state.isHydrated = true
+        }
+      }
     }
   )
 )
@@ -292,6 +306,7 @@ export const useAuth = () => {
     isAuthenticated: authStore.isAuthenticated,
     isLoading: authStore.isLoading,
     error: authStore.error,
+    isHydrated: authStore.isHydrated,
 
     // 登录方法
     login: authStore.setUser,

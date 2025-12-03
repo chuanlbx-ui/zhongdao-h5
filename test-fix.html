@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>H5 认证修复测试</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 8px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; margin-bottom: 30px; }
+        .section { margin-bottom: 30px; }
+        .section h2 { color: #555; font-size: 18px; margin-bottom: 15px; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .status-box { background: #f8f9fa; border-left: 4px solid #007bff; padding: 15px; margin-bottom: 15px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; word-break: break-all; }
+        .status-box.success { border-left-color: #28a745; background: #f0f9f5; }
+        .status-box.error { border-left-color: #dc3545; background: #fdf8f8; }
+        button { background: #007bff; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.3s; margin-right: 10px; margin-bottom: 10px; }
+        button:hover { background: #0056b3; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #c82333; }
+        button.success { background: #28a745; }
+        button.success:hover { background: #218838; }
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 H5 认证系统修复测试</h1>
+        
+        <div class="section">
+            <h2>📊 当前认证状态</h2>
+            <button onclick="checkAuthStatus()">检查认证状态</button>
+            <div id="authStatus"></div>
+        </div>
+
+        <div class="section">
+            <h2>💾 localStorage 数据</h2>
+            <button onclick="viewLocalStorage()">查看 auth-storage</button>
+            <button onclick="clearLocalStorage()" class="danger">清除 auth-storage</button>
+            <div id="storageStatus"></div>
+        </div>
+
+        <div class="section">
+            <h2>🧪 测试场景</h2>
+            <button onclick="testScenario1()" class="success">场景1：已登录访问首页</button>
+            <button onclick="testScenario2()" class="success">场景2：未登录访问首页</button>
+            <button onclick="testScenario3()" class="success">场景3：访问受保护路由</button>
+            <div id="testResult"></div>
+        </div>
+
+        <div class="section">
+            <h2>📝 日志</h2>
+            <button onclick="clearLogs()">清除日志</button>
+            <div id="logs" style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; padding: 15px; min-height: 200px; max-height: 300px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; color: #333;"></div>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            const colors = { info: '#0066cc', success: '#28a745', error: '#dc3545', warn: '#ff9800' };
+            logEntry.style.color = colors[type] || colors.info;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logsDiv.appendChild(logEntry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+            log('日志已清除', 'info');
+        }
+
+        function checkAuthStatus() {
+            log('检查认证状态...');
+            const storageData = localStorage.getItem('auth-storage');
+            const div = document.getElementById('authStatus');
+            
+            if (!storageData) {
+                div.innerHTML = '<div class="status-box error">未找到 auth-storage</div>';
+                log('未找到认证数据', 'error');
+                return;
+            }
+
+            try {
+                const parsed = JSON.parse(storageData);
+                const state = parsed.state || {};
+                
+                const html = `
+                    <div class="status-box success">
+                        认证数据存在<br><br>
+                        <strong>用户状态：</strong><br>
+                        isAuthenticated: <code>${state.isAuthenticated ? 'true' : 'false'}</code><br>
+                        userId: <code>${state.user?.id || 'null'}</code><br>
+                        phone: <code>${state.user?.phone || 'null'}</code><br>
+                        token: <code>${state.token ? state.token.substring(0, 20) + '...' : 'null'}</code><br><br>
+                        <strong>Hydration 状态：</strong><br>
+                        isHydrated: <code>${state.isHydrated ? 'true' : 'false'}</code>
+                    </div>
+                `;
+                div.innerHTML = html;
+                log('认证状态检查完成', 'success');
+            } catch (e) {
+                div.innerHTML = '<div class="status-box error">解析失败: ' + e.message + '</div>';
+                log('解析失败: ' + e.message, 'error');
+            }
+        }
+
+        function viewLocalStorage() {
+            log('查看 localStorage 内容');
+            const storageData = localStorage.getItem('auth-storage');
+            const div = document.getElementById('storageStatus');
+            
+            if (!storageData) {
+                div.innerHTML = '<div class="status-box error">未找到 auth-storage</div>';
+                return;
+            }
+
+            try {
+                const parsed = JSON.parse(storageData);
+                const html = '<div class="status-box"><pre>' + JSON.stringify(parsed, null, 2) + '</pre></div>';
+                div.innerHTML = html;
+                log('localStorage 内容已显示', 'success');
+            } catch (e) {
+                div.innerHTML = '<div class="status-box error">解析失败: ' + e.message + '</div>';
+            }
+        }
+
+        function clearLocalStorage() {
+            localStorage.removeItem('auth-storage');
+            document.getElementById('authStatus').innerHTML = '';
+            document.getElementById('storageStatus').innerHTML = '';
+            log('auth-storage 已清除', 'success');
+        }
+
+        function testScenario1() {
+            log('测试场景1：已登录用户访问首页');
+            const storageData = localStorage.getItem('auth-storage');
+            
+            if (!storageData) {
+                log('需要先登录', 'warn');
+                return;
+            }
+
+            try {
+                const parsed = JSON.parse(storageData);
+                const state = parsed.state;
+                if (state.isAuthenticated && state.token && state.user) {
+                    log('检查通过：用户已认证', 'success');
+                    log('预期：应显示首页 (MainApp)，不跳转到 /login', 'info');
+                } else {
+                    log('检查失败：认证数据不完整', 'error');
+                }
+            } catch (e) {
+                log('检查失败: ' + e.message, 'error');
+            }
+        }
+
+        function testScenario2() {
+            log('测试场景2：未登录用户访问首页');
+            const storageData = localStorage.getItem('auth-storage');
+            
+            if (storageData) {
+                log('请先清除 auth-storage', 'warn');
+                return;
+            }
+
+            log('检查通过：没有认证数据', 'success');
+            log('预期：应显示首页，按钮操作时会检查登录', 'info');
+        }
+
+        function testScenario3() {
+            log('测试场景3：访问受保护路由');
+            const storageData = localStorage.getItem('auth-storage');
+            
+            if (!storageData) {
+                log('检查通过（未登录）', 'success');
+                log('预期：访问 /cart 应重定向到 /login', 'info');
+            } else {
+                try {
+                    const parsed = JSON.parse(storageData);
+                    const state = parsed.state;
+                    if (state.isAuthenticated) {
+                        log('检查通过（已登录）', 'success');
+                        log('预期：访问 /cart、/orders 应正常显示', 'info');
+                    }
+                } catch (e) {
+                    log('检查失败: ' + e.message, 'error');
+                }
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            log('测试页面已加载', 'success');
+            checkAuthStatus();
+        });
+    </script>
+</body>
+</html>

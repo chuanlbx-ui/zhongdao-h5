@@ -2,7 +2,7 @@ import React from 'react'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Router } from 'react-router-dom'
 import { createMemoryHistory } from 'history'
-import Layout from '../Layout'
+import Layout from '../../components/Layout'
 
 describe('Layout组件', () => {
   const renderWithRouter = (component: React.ReactElement, initialEntries = ['/']) => {

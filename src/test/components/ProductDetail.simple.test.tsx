@@ -5,13 +5,13 @@ import { render, screen } from '@testing-library/react'
 describe('ProductDetail组件基础测试', () => {
   it('应该能够导入ProductDetail组件', async () => {
     // 动态导入组件，避免Mock问题
-    const { default: ProductDetail } = await import('../ProductDetail')
+    const { default: ProductDetail } = await import('../../components/ProductDetail')
 
     expect(typeof ProductDetail).toBe('function')
   })
 
   it('组件应该有正确的属性类型', async () => {
-    const { default: ProductDetail } = await import('../ProductDetail')
+    const { default: ProductDetail } = await import('../../components/ProductDetail')
 
     // 创建一个简单的props对象
     const props = {

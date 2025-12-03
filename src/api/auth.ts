@@ -85,8 +85,12 @@ export interface PasswordLoginParams {
 // 密码登录响应
 export interface PasswordLoginResponse {
   success: boolean
-  user: User
-  token: string
+  data?: {
+    user: User
+    token: string
+  }
+  user?: User  // 兼容性
+  token?: string  // 兼容性
   message?: string
 }
 
@@ -101,8 +105,20 @@ export interface PasswordRegisterParams {
 // 密码注册响应
 export interface PasswordRegisterResponse {
   success: boolean
-  user: User
-  token: string
+  data?: {
+    user: User
+    token: string
+    referralInfo?: {
+      yourCode: string
+      message: string
+    }
+  }
+  user?: User  // 兼容性
+  token?: string  // 兼容性
+  referralInfo?: {  // 兼容性
+    yourCode: string
+    message: string
+  }
   message?: string
 }
 

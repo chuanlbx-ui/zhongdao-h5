@@ -1,7 +1,7 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import ApiTest from '../ApiTest'
+import ApiTest from '../../components/ApiTest'
 import { productApi, userApi } from '@/api'
 
 // Mock the API modules

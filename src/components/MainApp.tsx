@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
-import { userApi } from '@/api'
+import { userApi, productApi, bannerApi } from '@/api'
 
 const MainApp: React.FC = () => {
   const navigate = useNavigate()
   const auth = useAuthStore()
-  const [currentPage, setCurrentPage] = useState<'home' | 'shop' | 'profile'>('profile')
+  const [currentPage, setCurrentPage] = useState<'home' | 'shop' | 'profile'>('home')
   const [user, setUser] = useState<any>(null)
+
+  // ... 检查不是所有页面都需要登录，但我的页面父抵启月
+  useEffect(() => {
+    if (currentPage === 'profile' && !auth.isAuthenticated) {
+      // ... 如果进入我的页面沒有登录，则重定向到首页
+      setCurrentPage('home')
+    }
+  }, [auth.isAuthenticated, currentPage])
 
   // 模拟用户数据
   const mockUser = {
@@ -26,27 +34,24 @@ const MainApp: React.FC = () => {
     isShopOwner: false
   }
 
-  // 模拟商品数据
-  const products = [
-    {
-      id: '1',
-      name: '优质有机苹果 5斤装',
-      basePrice: 68,
-      images: ['/placeholder-product.png'],
-      stock: 100,
-      sales: 256,
-      tags: ['新品', '热销']
-    },
-    {
-      id: '2',
-      name: '天然蜂蜜 500g',
-      basePrice: 128,
-      images: ['/placeholder-product.png'],
-      stock: 50,
-      sales: 89,
-      tags: ['有机']
+  // 从API获取商品数据
+  const [products, setProducts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const res = await productApi.getList({ perPage: 10 })
+        setProducts(res.items || [])
+      } catch (error) {
+        console.error('获取商品列表失败:', error)
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
+
+    fetchProducts()
+  }, [])
 
   const [categories, setCategories] = useState<Array<{ id: string; name: string; icon?: string; color?: string }>>([])
 
@@ -57,12 +62,23 @@ const MainApp: React.FC = () => {
   useEffect(() => {
     (async () => {
       try {
-        const res: any = await (await import('@/api')).productApi.getCategories()
-        const items: Array<{ id: string; name: string }> = res?.items || res || []
-        const palette = ['bg-orange-100','bg-blue-100','bg-purple-100','bg-pink-100','bg-red-100','bg-yellow-100']
-        const icons = ['🥤','🧴','📱','👕','💄','🍼']
-        setCategories(items.map((c, idx) => ({ id: String((c as any).id || c.name || idx), name: (c as any).name || '分类', color: palette[idx % palette.length], icon: icons[idx % icons.length] })))
-      } catch {
+        // 只有在用户已登录时才调用API获取分类
+        if (auth.isAuthenticated) {
+          const res: any = await (await import('@/api')).productApi.getCategories()
+          const items: Array<{ id: string; name: string }> = res?.items || res || []
+          const palette = ['bg-orange-100','bg-blue-100','bg-purple-100','bg-pink-100','bg-red-100','bg-yellow-100']
+          const icons = ['🥤','🧴','📱','👕','💄','🍼']
+          setCategories(items.map((c, idx) => ({ id: String((c as any).id || c.name || idx), name: (c as any).name || '分类', color: palette[idx % palette.length], icon: icons[idx % icons.length] })))
+        } else {
+          // ... 未登录时使用默认分类
+          setCategories([
+            { id: '1', name: '食品饮料', icon: '🥤', color: 'bg-orange-100' },
+            { id: '2', name: '日用品', icon: '🧴', color: 'bg-blue-100' },
+            { id: '3', name: '数码产品', icon: '📱', color: 'bg-purple-100' }
+          ])
+        }
+      } catch (e) {
+        console.warn('[MainApp] 加载分类失败:', e)
         setCategories([
           { id: '1', name: '食品饮料', icon: '🥤', color: 'bg-orange-100' },
           { id: '2', name: '日用品', icon: '🧴', color: 'bg-blue-100' },
@@ -70,7 +86,7 @@ const MainApp: React.FC = () => {
         ])
       }
     })()
-  }, [])
+  }, [auth.isAuthenticated])
 
   const handleNavigation = (page: 'home' | 'shop' | 'profile') => {
     setCurrentPage(page)
@@ -177,22 +193,42 @@ const MainApp: React.FC = () => {
 
   const handleLogout = () => {
     setUser(null)
-    localStorage.removeItem('auth-storage')
+    auth.logout()
     navigate('/login')
   }
 
   const [banners, setBanners] = useState<string[]>([])
   const [bannerIndex, setBannerIndex] = useState(0)
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('home_banners') || '[]')
-    const fallback = ['/placeholder-product.png', '/placeholder-product.png']
-    const list = Array.isArray(saved) && saved.length > 0 ? saved : fallback
-    setBanners(list)
+    // 从API获取Banner数据
+    const fetchBanners = async () => {
+      try {
+        const response = await bannerApi.getList()
+        // API返回的是 { success: true, data: [...] } 格式
+        const bannerList = response.data?.data || []
+        // 提取图片URL数组
+        const imageUrls = bannerList.map((banner: any) => banner.image_url)
+        if (imageUrls.length > 0) {
+          setBanners(imageUrls)
+        } else {
+          // 使用默认图片作为 fallback
+          setBanners(['/placeholder-product.png', '/placeholder-product.png'])
+        }
+      } catch (error) {
+        console.error('获取Banner失败:', error)
+        // 发生错误时使用默认图片
+        setBanners(['/placeholder-product.png', '/placeholder-product.png'])
+      }
+    }
+    
+    fetchBanners()
+    
+    // 设置自动轮播
     const t = setInterval(() => {
-      setBannerIndex((i) => (i + 1) % list.length)
+      setBannerIndex((i) => (i + 1) % banners.length)
     }, 3000)
     return () => clearInterval(t)
-  }, [])
+  }, [banners.length])
 
   // 首页组件
   const HomePage = () => (
@@ -311,37 +347,72 @@ const MainApp: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          {products.slice(0, 4).map((product) => (
-            <div key={product.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <button
-                onClick={() => handleProductClick(product.id)}
-                className="w-full h-32 bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
-              >
-                <span className="text-4xl">📦</span>
-              </button>
-              <div className="p-3">
-                <h4 className="font-medium text-gray-900 mb-2 text-sm line-clamp-2 cursor-pointer hover:text-red-500"
-                    onClick={() => handleProductClick(product.id)}>
-                  {product.name}
-                </h4>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-red-500 font-bold">¥{product.basePrice}</span>
-                  {product.sales && (
-                    <span className="text-xs text-gray-500">已售{product.sales}</span>
-                  )}
+          {loading ? (
+            // 加载中状态
+            Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="bg-white rounded-lg shadow-sm overflow-hidden animate-pulse">
+                <div className="w-full h-32 bg-gray-200"></div>
+                <div className="p-3">
+                  <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
+                  <div className="h-8 bg-gray-200 rounded"></div>
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleAddToCart(product.id, product.name)
-                  }}
-                  className="w-full bg-red-500 text-white text-xs py-2 rounded hover:bg-red-600 active:bg-red-700 transition-colors"
-                >
-                  加入购物车
-                </button>
               </div>
+            ))
+          ) : products.length > 0 ? (
+            // 显示商品列表
+            products.slice(0, 4).map((product) => (
+              <div key={product.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                <button
+                  onClick={() => handleProductClick(product.id)}
+                  className="w-full h-32 flex items-center justify-center overflow-hidden"
+                >
+                  {(() => {
+                    // 处理images字段可能是字符串的情况
+                    const images = Array.isArray(product.images) ? product.images : [product.images];
+                    return images && images.length > 0 && images[0] ? (
+                      <img
+                        src={images[0]}
+                        alt={product.name}
+                        className="w-full h-full object-cover hover:scale-105 transition-transform"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-4xl">📦</span>
+                      </div>
+                    );
+                  })()}
+                </button>
+                <div className="p-3">
+                  <h4 className="font-medium text-gray-900 mb-2 text-sm line-clamp-2 cursor-pointer hover:text-red-500"
+                      onClick={() => handleProductClick(product.id)}>
+                    {product.name}
+                  </h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-red-500 font-bold">¥{product.basePrice}</span>
+                    {product.sales && (
+                      <span className="text-xs text-gray-500">已售{product.sales}</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleAddToCart(product.id, product.name)
+                    }}
+                    className="w-full bg-red-500 text-white text-xs py-2 rounded hover:bg-red-600 active:bg-red-700 transition-colors"
+                  >
+                    加入购物车
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            // 没有商品数据
+            <div className="col-span-2 text-center py-8 bg-white rounded-lg shadow-sm">
+              <div className="text-4xl mb-2">📦</div>
+              <div className="text-gray-600">暂无商品数据</div>
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>
@@ -365,48 +436,87 @@ const MainApp: React.FC = () => {
       <div>
         <h2 className="text-lg font-bold text-gray-900 mb-3">店铺商品</h2>
         <div className="grid grid-cols-2 gap-4">
-          {products.map((product) => (
-            <div key={product.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <button
-                onClick={() => handleProductClick(product.id)}
-                className="w-full h-40 bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
-              >
-                <span className="text-4xl">📦</span>
-              </button>
-              <div className="p-3">
-                <h3 className="font-medium text-gray-900 mb-2 text-sm line-clamp-2 cursor-pointer hover:text-red-500"
-                    onClick={() => handleProductClick(product.id)}>
-                  {product.name}
-                </h3>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-red-500 font-bold text-lg">¥{product.basePrice}</span>
-                  <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                    库存: {product.stock || '充足'}
-                  </span>
-                </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleAddToCart(product.id, product.name)
-                    }}
-                    className="flex-1 bg-red-500 text-white text-xs py-2 rounded hover:bg-red-600 active:bg-red-700 transition-colors"
-                  >
-                    加入购物车
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleBuyNow(product.id)
-                    }}
-                    className="flex-1 bg-orange-500 text-white text-xs py-2 rounded hover:bg-orange-600 active:bg-orange-700 transition-colors"
-                  >
-                    立即购买
-                  </button>
+          {loading ? (
+            // 加载中状态
+            Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="bg-white rounded-lg shadow-sm overflow-hidden animate-pulse">
+                <div className="w-full h-40 bg-gray-200"></div>
+                <div className="p-3">
+                  <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
+                  <div className="h-8 bg-gray-200 rounded mb-2"></div>
+                  <div className="flex space-x-2">
+                    <div className="flex-1 h-8 bg-gray-200 rounded"></div>
+                    <div className="flex-1 h-8 bg-gray-200 rounded"></div>
+                  </div>
                 </div>
               </div>
+            ))
+          ) : products.length > 0 ? (
+            // 显示商品列表
+            products.map((product) => (
+              <div key={product.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                <button
+                  onClick={() => handleProductClick(product.id)}
+                  className="w-full h-40 flex items-center justify-center overflow-hidden"
+                >
+                  {(() => {
+                    // 处理images字段可能是字符串的情况
+                    const images = Array.isArray(product.images) ? product.images : [product.images];
+                    return images && images.length > 0 && images[0] ? (
+                      <img
+                        src={images[0]}
+                        alt={product.name}
+                        className="w-full h-full object-cover hover:scale-105 transition-transform"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-4xl">📦</span>
+                      </div>
+                    );
+                  })()}
+                </button>
+                <div className="p-3">
+                  <h3 className="font-medium text-gray-900 mb-2 text-sm line-clamp-2 cursor-pointer hover:text-red-500"
+                      onClick={() => handleProductClick(product.id)}>
+                    {product.name}
+                  </h3>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-red-500 font-bold text-lg">¥{product.basePrice}</span>
+                    <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                      库存: {product.stock || '充足'}
+                    </span>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleAddToCart(product.id, product.name)
+                      }}
+                      className="flex-1 bg-red-500 text-white text-xs py-2 rounded hover:bg-red-600 active:bg-red-700 transition-colors"
+                    >
+                      加入购物车
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleBuyNow(product.id)
+                      }}
+                      className="flex-1 bg-orange-500 text-white text-xs py-2 rounded hover:bg-orange-600 active:bg-orange-700 transition-colors"
+                    >
+                      立即购买
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            // 没有商品数据
+            <div className="col-span-2 text-center py-12 bg-white rounded-lg shadow-sm">
+              <div className="text-4xl mb-2">📦</div>
+              <div className="text-gray-600">暂无商品数据</div>
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>
@@ -428,56 +538,16 @@ const MainApp: React.FC = () => {
   }
 
   // 测试API连接
-  useEffect(() => {
-    const testApiConnection = async () => {
-      try {
-        console.log('测试API连接...')
-        
-        // 测试商品分类API
-        const categoriesResponse = await productApi.getCategories()
-        console.log('✅ 商品分类API连接成功:', categoriesResponse)
-        
-        // 测试用户等级进度API
-        const levelResponse = await userApi.getLevelProgress()
-        console.log('✅ 用户等级进度API连接成功:', levelResponse)
-        
-        // 测试商品列表API
-        const productsResponse = await productApi.getList({ page: 1, perPage: 5 })
-        console.log('✅ 商品列表API连接成功:', productsResponse)
-        
-        console.log('🎉 所有API测试通过！H5前端与后端集成成功')
-      } catch (error: any) {
-        console.error('❌ API连接测试失败:', error.message || error)
-        if (error.response) {
-          console.error('响应状态:', error.response.status)
-          console.error('响应数据:', error.response.data)
-        }
-      }
-    }
-
-    testApiConnection()
-  }, [])
+  // ✅ 移除API测试代码 - 这是造成无限循环请求的原因
+  // useEffect(() => { ... }, []) 虽然有空依赖数组，但频繁的API调用会消耗服务器资源
+  // 如需测试API连接，应改为在app启动时一次性执行，或通过专门的诊断页面执行
 
   // 个人中心页面组件
   const ProfilePage = () => {
-    const [rule, setRule] = useState<{ nextLabel: string; amount: number } | null>(null)
+    const [rule] = useState<{ nextLabel: string; amount: number } | null>(
+      getDefaultLevelRule(user?.level || 'normal')
+    )  // ✅ 直接使用本地数据，不调用API，一次性获取
     const spent = user?.totalSpent || 0
-    useEffect(() => {
-      let mounted = true
-      ;(async () => {
-        try {
-          const res = await userApi.getLevelProgress()
-          if (mounted && res?.requirement?.type === 'amount') {
-            setRule({ nextLabel: res.nextLevel, amount: Number(res.requirement.value) || 0 })
-          } else if (mounted) {
-            setRule(getDefaultLevelRule(user?.level || 'normal'))
-          }
-        } catch {
-          if (mounted) setRule(getDefaultLevelRule(user?.level || 'normal'))
-        }
-      })()
-      return () => { mounted = false }
-    }, [user?.level])
     const target = rule?.amount ?? 0
     const progressPercentage = target > 0 ? Math.min((spent / target) * 100, 100) : 100
 

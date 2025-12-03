@@ -1,7 +1,7 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import ProductDetail from '../ProductDetail'
+import ProductDetail from '../../components/ProductDetail'
 import { productApi } from '../../api/product'
 
 // Mock Ant Design components

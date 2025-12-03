@@ -1,4 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios'
+import { useAuthStore } from '@/stores/authStore'
+import { appConfig } from '@/config'
 
 // CSRF令牌管理
 let csrfToken: string | null = null
@@ -31,7 +33,8 @@ const initCSRFToken = async (): Promise<void> => {
   }
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+// API基础配置 - 从配置文件获取
+const API_BASE_URL = `${appConfig.apiBase}/api/v1`
 
 class ApiClient {
   private client: AxiosInstance
@@ -49,21 +52,49 @@ class ApiClient {
     // 请求拦截器 - 添加 token 和 CSRF
     this.client.interceptors.request.use(
       async (config) => {
-        // 添加认证token
-        let token = localStorage.getItem('auth_token')
+        // 添加认证token - 优先从zustand store读取当前状态
+        let token = null
+        
+        try {
+          // 第一优先级：从zustand store的当前状态读取（这是最新的）
+          const authState = useAuthStore.getState()
+          if (authState.token) {
+            token = authState.token
+            console.log('[API] 从zustand store读取token:', token.substring(0, 8) + '...')
+          }
+        } catch (e) {
+          console.error('[API] zustand store读取失败:', e)
+        }
+        
+        // 如果zustand中没有token，尝试从localStorage恢复
         if (!token) {
           const authStorage = localStorage.getItem('auth-storage')
           if (authStorage) {
             try {
               const parsed = JSON.parse(authStorage)
-              token = parsed?.state?.token || null
-            } catch (_) {
-              token = null
+              token = parsed?.state?.token
+              if (token) {
+                console.log('[API] 从auth-storage读取token:', token.substring(0, 8) + '...')
+              }
+            } catch (e) {
+              console.error('[API] auth-storage解析失败:', e)
             }
           }
         }
+        
+        // 最后一个备用位置
+        if (!token) {
+          token = localStorage.getItem('auth_token')
+          if (token) {
+            console.log('[API] 从auth_token读取token:', token.substring(0, 8) + '...')
+          }
+        }
+        
         if (token) {
           config.headers.Authorization = `Bearer ${token}`
+          console.log('[API] 已添加Authorization header，请求URL:', config.url, '用户ID:', useAuthStore.getState().user?.id)
+        } else {
+          console.warn('[API] 没有找到token，请求URL:', config.url)
         }
 
         // 添加CSRF令牌（对于非GET请求）
@@ -75,6 +106,7 @@ class ApiClient {
           if (csrfToken) {
             // 添加到请求头
             config.headers['x-csrf-token'] = csrfToken
+            console.log('[API] 已添加x-csrf-token header')
             
             // 如果是POST请求，也添加到请求体
             if (config.method.toLowerCase() === 'post' && config.data) {
@@ -91,7 +123,7 @@ class ApiClient {
               }
             }
           } else {
-            console.warn('未找到CSRF令牌，但继续请求')
+            console.warn('[API] 未找到CSRF令牌，继续请求')
           }
         }
 
@@ -138,8 +170,18 @@ class ApiClient {
         }
         
         if (error.response?.status === 401) {
+          console.warn('[API] 收到401未认证响应，清除登录状态')
+          // 清除localStorage
           localStorage.removeItem('auth_token')
           localStorage.removeItem('auth-storage')
+          // 清除zustand store中的认证状态
+          try {
+            const authStore = useAuthStore.getState()
+            authStore.clearUser()
+          } catch (e) {
+            console.error('[API] 清除zustand认证状态失败:', e)
+          }
+          // 重定向到登录页
           window.location.href = '/login'
         }
         return Promise.reject(error.response?.data || error)

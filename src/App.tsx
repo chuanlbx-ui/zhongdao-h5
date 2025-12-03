@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { useAuthStore } from '@/stores/authStore'
 
 // 页面组件
 import LoginPage from './pages/Login/LoginPage'
@@ -36,16 +37,15 @@ import AddressesPage from './pages/Addresses'
 
 // 路由守卫组件 - 基于认证状态
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const storedAuth = localStorage.getItem('auth-storage')
-  let isAuthenticated = false
-  if (storedAuth) {
-    try {
-      const parsed = JSON.parse(storedAuth)
-      isAuthenticated = !!parsed?.state?.isAuthenticated
-    } catch {
-      isAuthenticated = false
-    }
+  // 从zustand获取认证状态，不是从localStorage
+  const { isAuthenticated, isHydrated } = useAuthStore()
+  
+  // 在hydration完成之前，显示加载中状态
+  if (!isHydrated) {
+    return <div className="flex items-center justify-center h-screen">加载中...</div>
   }
+  
+  // hydration完成后，检查认证状态
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
   }
@@ -53,22 +53,12 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 }
 
 const App: React.FC = () => {
-  useEffect(() => {
-    const storedAuth = localStorage.getItem('auth-storage')
-    let isAuthenticated = false
-    if (storedAuth) {
-      try {
-        const parsed = JSON.parse(storedAuth)
-        isAuthenticated = !!parsed?.state?.isAuthenticated
-      } catch {
-        isAuthenticated = false
-      }
-    }
-    const currentPath = window.location.pathname
-    if (isAuthenticated && ['/login', '/password-login', '/phone-input', '/login-success'].includes(currentPath)) {
-      window.location.replace('/')
-    }
-  }, [])
+  const { isHydrated } = useAuthStore()
+  
+  // 在hydration完成之前，显示加载中
+  if (!isHydrated) {
+    return <div className="flex items-center justify-center h-screen">加载中...</div>
+  }
 
   return (
     <Router future={{

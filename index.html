@@ -1,13 +1,19 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>中道商城</title>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>中道商城 - H5</title>
+  </head>
+  <body>
+    <!-- 通过 data 属性注入运行时配置（由服务器填充） -->
+    <div 
+      id="app" 
+      data-api-base="${API_BASE}"
+      data-api-timeout="${API_TIMEOUT}"
+      data-debug="${DEBUG}"
+    ></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
