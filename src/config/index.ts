@@ -16,6 +16,7 @@ function getConfigFromDOM(): Partial<AppConfig> {
   if (!root) {
     return {};
   }
+  console.log('DOM数据:', root.dataset.apiBase)
   
   return {
     apiBase: root.dataset.apiBase,
@@ -26,8 +27,9 @@ function getConfigFromDOM(): Partial<AppConfig> {
 
 // 从环境变量读取（开发时使用）
 function getConfigFromEnv(): Partial<AppConfig> {
+    console.log('环境变量:', import.meta.env)
   return {
-    apiBase: import.meta.env.VITE_API_BASE || 'http://localhost:3000',
+    apiBase: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000',
     apiTimeout: parseInt(import.meta.env.VITE_API_TIMEOUT || '10000'),
     debug: import.meta.env.VITE_DEBUG === 'true',
     environment: import.meta.env.PROD ? 'production' : 'development',
@@ -36,13 +38,12 @@ function getConfigFromEnv(): Partial<AppConfig> {
 
 // 合并配置：优先使用DOM注入的值，其次使用环境变量
 function mergeConfig(): AppConfig {
-  const domConfig = getConfigFromDOM();
   const envConfig = getConfigFromEnv();
   
   return {
-    apiBase: domConfig.apiBase || envConfig.apiBase || 'http://localhost:3000',
-    apiTimeout: domConfig.apiTimeout || envConfig.apiTimeout || 10000,
-    debug: domConfig.debug ?? envConfig.debug ?? false,
+    apiBase: envConfig.apiBase || 'http://localhost:3000',
+    apiTimeout: envConfig.apiTimeout || 10000,
+    debug: envConfig.debug ?? false,
     environment: envConfig.environment || 'production',
   };
 }
@@ -51,6 +52,7 @@ export const appConfig = mergeConfig();
 
 // 验证配置
 export function validateConfig() {
+    console.log('当前配置:', appConfig)
   if (!appConfig.apiBase) {
     throw new Error('API base URL is not configured');
   }

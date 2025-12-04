@@ -59,6 +59,15 @@ const PasswordLoginPage: React.FC = () => {
   const { loginMethod, wxUserId, isNewUser } = location.state || {}
 
   React.useEffect(() => {
+      // 添加调试日志
+      console.log('[PasswordLoginPage] Environment variables:', {
+          API_BASE: import.meta.env.VITE_API_BASE,
+          BASE_URL: import.meta.env.BASE_URL,
+          PROD: import.meta.env.PROD,
+          DEV: import.meta.env.DEV
+      });
+
+
     const params = new URLSearchParams(window.location.search)
     const ref = params.get('ref') || params.get('inviter') || useAuthStore.getState().referralCode || localStorage.getItem('referral_code') || ''
     setReferralCode(ref || '')
@@ -410,7 +419,7 @@ const PasswordLoginPage: React.FC = () => {
           <p style={{ fontSize: '14px', color: '#6B7280' }}>
             {formData.isRegister 
               ? '使用手机号和密码创建您的账户'
-              : '输入您的手机号和密码登录'
+              : ' 输入您的手机号和密码登录'
             }
           </p>
         </div>

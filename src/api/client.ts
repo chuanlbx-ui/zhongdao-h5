@@ -35,6 +35,7 @@ const initCSRFToken = async (): Promise<void> => {
 
 // API基础配置 - 从配置文件获取
 const API_BASE_URL = `${appConfig.apiBase}/api/v1`
+console.log('API基础URL:', API_BASE_URL)
 
 class ApiClient {
   private client: AxiosInstance

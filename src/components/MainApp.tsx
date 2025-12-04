@@ -42,6 +42,7 @@ const MainApp: React.FC = () => {
     const fetchProducts = async () => {
       try {
         const res = await productApi.getList({ perPage: 10 })
+          console.log('商品列表:', res)
         setProducts(res.items || [])
       } catch (error) {
         console.error('获取商品列表失败:', error)
@@ -56,6 +57,7 @@ const MainApp: React.FC = () => {
   const [categories, setCategories] = useState<Array<{ id: string; name: string; icon?: string; color?: string }>>([])
 
   useEffect(() => {
+      console.log("用户信息", mockUser)
     setUser(auth.user || mockUser)
   }, [auth.user])
 
